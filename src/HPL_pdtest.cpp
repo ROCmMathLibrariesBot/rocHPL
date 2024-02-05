@@ -339,11 +339,11 @@ void HPL_pdtest(HPL_T_test* TEST,
       // int id = HPL_idamax( mat.mp, Bptr, 1);
       // BnormI = Bptr[id];
       int id;
-      rocblas_idamax(handle, mat.mp, dBptr, 1, &id);
+      CHECK_ROCBLAS_ERROR(rocblas_idamax(handle, mat.mp, dBptr, 1, &id));
 
       // Note: id is in Fortran indexing
-      hipMemcpy(
-          &BnormI, dBptr + id - 1, 1 * sizeof(double), hipMemcpyDeviceToHost);
+      CHECK_HIP_ERROR(hipMemcpy(
+          &BnormI, dBptr + id - 1, 1 * sizeof(double), hipMemcpyDeviceToHost));
       BnormI = Mabs(BnormI);
     } else {
       BnormI = HPL_rzero;
@@ -370,57 +370,59 @@ void HPL_pdtest(HPL_T_test* TEST,
 
     for(int nn = 0; nn < nq; nn += nq_chunk) {
       int nb = Mmin(nq - nn, nq_chunk);
-      rocblas_dgemv(handle,
-                    rocblas_operation_none,
-                    mat.mp,
-                    nb,
-                    &mone,
-                    Mptr(mat.dA, 0, nn, mat.ld),
-                    mat.ld,
-                    Mptr(mat.dX, 0, nn, 1),
-                    1,
-                    &one,
-                    dBptr,
-                    1);
+      CHECK_ROCBLAS_ERROR(rocblas_dgemv(handle,
+                                        rocblas_operation_none,
+                                        mat.mp,
+                                        nb,
+                                        &mone,
+                                        Mptr(mat.dA, 0, nn, mat.ld),
+                                        mat.ld,
+                                        Mptr(mat.dX, 0, nn, 1),
+                                        1,
+                                        &one,
+                                        dBptr,
+                                        1));
     }
 
-    hipMemcpy(Bptr, dBptr, mat.mp * sizeof(double), hipMemcpyDeviceToHost);
+    CHECK_HIP_ERROR(
+        hipMemcpy(Bptr, dBptr, mat.mp * sizeof(double), hipMemcpyDeviceToHost));
   } else if(nq > 0) {
     const double one  = 1.0;
     const double zero = 0.0;
     const double mone = -1.0;
 
     int nb = Mmin(nq, nq_chunk);
-    rocblas_dgemv(handle,
-                  rocblas_operation_none,
-                  mat.mp,
-                  nb,
-                  &mone,
-                  Mptr(mat.dA, 0, 0, mat.ld),
-                  mat.ld,
-                  Mptr(mat.dX, 0, 0, 1),
-                  1,
-                  &zero,
-                  dBptr,
-                  1);
+    CHECK_ROCBLAS_ERROR(rocblas_dgemv(handle,
+                                      rocblas_operation_none,
+                                      mat.mp,
+                                      nb,
+                                      &mone,
+                                      Mptr(mat.dA, 0, 0, mat.ld),
+                                      mat.ld,
+                                      Mptr(mat.dX, 0, 0, 1),
+                                      1,
+                                      &zero,
+                                      dBptr,
+                                      1));
 
     for(int nn = nb; nn < nq; nn += nq_chunk) {
       int nb = Mmin(nq - nn, nq_chunk);
-      rocblas_dgemv(handle,
-                    rocblas_operation_none,
-                    mat.mp,
-                    nb,
-                    &mone,
-                    Mptr(mat.dA, 0, nn, mat.ld),
-                    mat.ld,
-                    Mptr(mat.dX, 0, nn, 1),
-                    1,
-                    &one,
-                    dBptr,
-                    1);
+      CHECK_ROCBLAS_ERROR(rocblas_dgemv(handle,
+                                        rocblas_operation_none,
+                                        mat.mp,
+                                        nb,
+                                        &mone,
+                                        Mptr(mat.dA, 0, nn, mat.ld),
+                                        mat.ld,
+                                        Mptr(mat.dX, 0, nn, 1),
+                                        1,
+                                        &one,
+                                        dBptr,
+                                        1));
     }
 
-    hipMemcpy(Bptr, dBptr, mat.mp * sizeof(double), hipMemcpyDeviceToHost);
+    CHECK_HIP_ERROR(
+        hipMemcpy(Bptr, dBptr, mat.mp * sizeof(double), hipMemcpyDeviceToHost));
   } else {
     for(ii = 0; ii < mat.mp; ii++) Bptr[ii] = HPL_rzero;
   }
@@ -433,7 +435,8 @@ void HPL_pdtest(HPL_T_test* TEST,
   /*
    * Compute || b - A x ||_oo
    */
-  hipMemcpy(dBptr, Bptr, mat.mp * sizeof(double), hipMemcpyHostToDevice);
+  CHECK_HIP_ERROR(
+      hipMemcpy(dBptr, Bptr, mat.mp * sizeof(double), hipMemcpyHostToDevice));
   resid0 = HPL_pdlange(GRID, HPL_NORM_I, N, 1, NB, dBptr, mat.ld);
   /*
    * Computes and displays norms, residuals ...

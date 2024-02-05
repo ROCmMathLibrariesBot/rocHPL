@@ -74,7 +74,7 @@ void HPL_pdupdateNT(HPL_T_panel* PANEL, const HPL_T_UPD UPD) {
   if((n <= 0) || (jb <= 0)) { return; }
 
   hipStream_t stream;
-  rocblas_get_stream(handle, &stream);
+  CHECK_ROCBLAS_ERROR(rocblas_get_stream(handle, &stream));
 
   curr  = (PANEL->grid->myrow == PANEL->prow ? 1 : 0);
   L2ptr = PANEL->dL2;
@@ -92,78 +92,78 @@ void HPL_pdupdateNT(HPL_T_panel* PANEL, const HPL_T_UPD UPD) {
     /*
      * 1 x Q case
      */
-    rocblas_dtrsm(handle,
-                  rocblas_side_left,
-                  rocblas_fill_lower,
-                  rocblas_operation_none,
-                  rocblas_diagonal_unit,
-                  jb,
-                  n,
-                  &one,
-                  L1ptr,
-                  jb,
-                  Aptr,
-                  lda);
+    CHECK_ROCBLAS_ERROR(rocblas_dtrsm(handle,
+                                      rocblas_side_left,
+                                      rocblas_fill_lower,
+                                      rocblas_operation_none,
+                                      rocblas_diagonal_unit,
+                                      jb,
+                                      n,
+                                      &one,
+                                      L1ptr,
+                                      jb,
+                                      Aptr,
+                                      lda));
 
     HPL_dlatcpy_gpu(n, jb, Aptr, lda, Uptr, LDU);
   } else {
     /*
      * Compute redundantly row block of U and update trailing submatrix
      */
-    rocblas_dtrsm(handle,
-                  rocblas_side_right,
-                  rocblas_fill_lower,
-                  rocblas_operation_transpose,
-                  rocblas_diagonal_unit,
-                  n,
-                  jb,
-                  &one,
-                  L1ptr,
-                  jb,
-                  Uptr,
-                  LDU);
+    CHECK_ROCBLAS_ERROR(rocblas_dtrsm(handle,
+                                      rocblas_side_right,
+                                      rocblas_fill_lower,
+                                      rocblas_operation_transpose,
+                                      rocblas_diagonal_unit,
+                                      n,
+                                      jb,
+                                      &one,
+                                      L1ptr,
+                                      jb,
+                                      Uptr,
+                                      LDU));
   }
 
   /*
    * Queue finishing the update
    */
   if(curr != 0) {
-    hipEventRecord(dgemmStart[UPD], stream);
-    rocblas_dgemm(handle,
-                  rocblas_operation_none,
-                  rocblas_operation_transpose,
-                  mp,
-                  n,
-                  jb,
-                  &mone,
-                  L2ptr,
-                  ldl2,
-                  Uptr,
-                  LDU,
-                  &one,
-                  Mptr(Aptr, jb, 0, lda),
-                  lda);
-    hipEventRecord(dgemmStop[UPD], stream);
+    CHECK_HIP_ERROR(hipEventRecord(dgemmStart[UPD], stream));
+    CHECK_ROCBLAS_ERROR(rocblas_dgemm(handle,
+                                      rocblas_operation_none,
+                                      rocblas_operation_transpose,
+                                      mp,
+                                      n,
+                                      jb,
+                                      &mone,
+                                      L2ptr,
+                                      ldl2,
+                                      Uptr,
+                                      LDU,
+                                      &one,
+                                      Mptr(Aptr, jb, 0, lda),
+                                      lda));
+    CHECK_HIP_ERROR(hipEventRecord(dgemmStop[UPD], stream));
 
     if(PANEL->grid->nprow > 1) HPL_dlatcpy_gpu(jb, n, Uptr, LDU, Aptr, lda);
   } else {
-    hipEventRecord(dgemmStart[UPD], stream);
-    rocblas_dgemm(handle,
-                  rocblas_operation_none,
-                  rocblas_operation_transpose,
-                  mp,
-                  n,
-                  jb,
-                  &mone,
-                  L2ptr,
-                  ldl2,
-                  Uptr,
-                  LDU,
-                  &one,
-                  Aptr,
-                  lda);
-    hipEventRecord(dgemmStop[UPD], stream);
+    CHECK_HIP_ERROR(hipEventRecord(dgemmStart[UPD], stream));
+    CHECK_ROCBLAS_ERROR(rocblas_dgemm(handle,
+                                      rocblas_operation_none,
+                                      rocblas_operation_transpose,
+                                      mp,
+                                      n,
+                                      jb,
+                                      &mone,
+                                      L2ptr,
+                                      ldl2,
+                                      Uptr,
+                                      LDU,
+                                      &one,
+                                      Aptr,
+                                      lda));
+    CHECK_HIP_ERROR(hipEventRecord(dgemmStop[UPD], stream));
   }
 
-  hipEventRecord(update[UPD], stream);
+  CHECK_HIP_ERROR(hipEventRecord(update[UPD], stream));
 }
